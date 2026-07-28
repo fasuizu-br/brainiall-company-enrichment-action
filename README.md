@@ -35,7 +35,7 @@ jobs:
 
       - name: Enrich company
         id: company
-        uses: fasuizu-br/brainiall-company-enrichment-action@v1.0.0
+        uses: fasuizu-br/brainiall-company-enrichment-action@v1.0.2
         with:
           domain: ${{ inputs.domain }}
           apify_token: ${{ secrets.APIFY_TOKEN }}
