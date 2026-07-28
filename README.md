@@ -2,9 +2,8 @@
 
 Enrich one company domain in GitHub Actions with the public Brainiall
 [`vivid_astronaut/company-enrichment`](https://apify.com/vivid_astronaut/company-enrichment)
-Actor on Apify. The action returns at most one JSON item and can include
-firmographics, detected technologies, public social profiles, and available
-financial signals.
+Actor on Apify. The action accepts exactly one bare domain and writes exactly
+one validated website-metadata candidate item on success.
 
 ## Quick start
 
@@ -58,12 +57,9 @@ The action never creates parent directories implicitly.
 | `domain` | yes | — | One bare company domain, such as `openai.com`. |
 | `apify_token` | yes | — | Scoped Apify token supplied from GitHub Secrets. |
 | `output_path` | no | `company-enrichment.json` | JSON destination inside `GITHUB_WORKSPACE`. |
-| `include_technologies` | no | `true` | Include detected technology signals. |
-| `include_socials` | no | `true` | Include public social profile signals. |
-| `include_financials` | no | `true` | Include available financial signals. |
-
-The action returns the absolute `output_path` and a `result_count` of zero or
-one.
+The action returns the absolute `output_path` and a `result_count` of one only
+after the Actor response passes semantic validation. Treat candidate fields as
+website-derived hints, not authoritative registry facts.
 
 ## Cost and security guardrails
 
@@ -72,7 +68,7 @@ one.
 - Every request is fixed to `maxItems=1` and `maxTotalChargeUsd=0.02`.
 - The token is mandatory, never printed, sent only to the fixed Apify HTTPS
   host through a private temporary header file, and removed after the request.
-- Domains, booleans, response shape, and output paths are validated. Symlink
+- Domain, semantic result, attribution, response shape, and output paths are validated. Symlink
   outputs and paths outside `GITHUB_WORKSPACE` are rejected.
 - The action does not retry a metered POST after an ambiguous failure.
 - Existing output is preserved on transport, HTTP, empty-response, or schema
@@ -94,8 +90,8 @@ node scripts/validate-n8n-workflow.mjs
 ## n8n workflow
 
 [`examples/n8n-brainiall-company-enrichment.json`](examples/n8n-brainiall-company-enrichment.json)
-is an importable no-code workflow with explicit domain validation and the same
-one-result, US$0.02 request cap.
+is an importable no-code workflow with explicit input and output validation and
+the same one-result, US$0.02 request cap.
 
 1. Download the [raw workflow](https://raw.githubusercontent.com/fasuizu-br/brainiall-company-enrichment-action/main/examples/n8n-brainiall-company-enrichment.json).
 2. Import it into n8n.
