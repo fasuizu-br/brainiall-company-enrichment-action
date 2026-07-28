@@ -64,13 +64,13 @@ grep -Fqx "Authorization: Bearer $MOCK_EXPECTED_TOKEN" "$headers_file" || exit 9
 payload_file=${payload_arg#@}
 jq -e \
   --arg domain "$MOCK_EXPECTED_DOMAIN" \
-  '.domain == $domain and .includeTechnologies == true and .includeSocials == true and .includeFinancials == false' \
+  '.domain == $domain and .integrationSource == "github-action-c9" and length == 2' \
   "$payload_file" >/dev/null || exit 96
 [[ -n "$output_file" ]] || exit 97
 
 case "${MOCK_CURL_MODE:-success}" in
   success)
-    printf '[{"domain":"%s","name":"Mock Company"}]' "$MOCK_EXPECTED_DOMAIN" >"$output_file"
+    printf '[{"success":true,"domain":"%s","nameCandidate":"Mock Company","integrationSource":"github-action-c9","provenance":{"method":"website_metadata_scrape"}}]' "$MOCK_EXPECTED_DOMAIN" >"$output_file"
     printf '200'
     ;;
   empty)
@@ -83,7 +83,11 @@ case "${MOCK_CURL_MODE:-success}" in
     exit 22
     ;;
   too_many)
-    printf '[{"domain":"one.example"},{"domain":"two.example"}]' >"$output_file"
+    printf '[{"success":true,"domain":"one.example"},{"success":true,"domain":"two.example"}]' >"$output_file"
+    printf '200'
+    ;;
+  semantic_error)
+    printf '[{"success":false,"domain":"%s","error":"upstream failed"}]' "$MOCK_EXPECTED_DOMAIN" >"$output_file"
     printf '200'
     ;;
   *) exit 100 ;;
@@ -114,9 +118,6 @@ run_action() {
   BRAINIALL_DOMAIN="$domain" \
   BRAINIALL_APIFY_TOKEN="$token" \
   BRAINIALL_OUTPUT_PATH="$output" \
-  BRAINIALL_INCLUDE_TECHNOLOGIES='true' \
-  BRAINIALL_INCLUDE_SOCIALS='true' \
-  BRAINIALL_INCLUDE_FINANCIALS='false' \
   MOCK_CURL_MODE="$mode" \
   MOCK_EXPECTED_TOKEN="$test_token" \
   MOCK_EXPECTED_DOMAIN="$domain" \
@@ -131,10 +132,12 @@ grep -Fqx "output_path=$workspace/results/example.json" "$test_root/github-outpu
 grep -Fqx 'result_count=1' "$test_root/github-output"
 
 : >"$test_root/github-output"
-logs=$(run_action empty empty.example 'results/empty.json' 2>&1)
+if logs=$(run_action empty empty.example 'results/empty.json' 2>&1); then
+  printf 'FAIL: an empty result was accepted\n' >&2
+  exit 1
+fi
 assert_not_contains_token "$logs"
-jq -e 'length == 0' "$workspace/results/empty.json" >/dev/null
-grep -Fqx 'result_count=0' "$test_root/github-output"
+[[ ! -e "$workspace/results/empty.json" ]]
 
 if logs=$(run_action success 'https://example.com/path' 'results/invalid.json' 2>&1); then
   printf 'FAIL: a URL was accepted as a domain\n' >&2
@@ -165,6 +168,13 @@ fi
 assert_not_contains_token "$logs"
 [[ ! -e "$workspace/results/too-many.json" ]]
 
+if logs=$(run_action semantic_error example.com 'results/semantic-error.json' 2>&1); then
+  printf 'FAIL: a success:false item was accepted\n' >&2
+  exit 1
+fi
+assert_not_contains_token "$logs"
+[[ ! -e "$workspace/results/semantic-error.json" ]]
+
 outside=$test_root/outside.json
 printf 'outside\n' >"$outside"
 ln -s "$outside" "$workspace/results/symlink.json"
@@ -179,4 +189,4 @@ if find "$runner_temp" -mindepth 1 -print -quit | grep -q .; then
   exit 1
 fi
 
-printf 'PASS: 7 isolated tests completed without a real token or network request.\n'
+printf 'PASS: 8 isolated tests completed without a real token or network request.\n'

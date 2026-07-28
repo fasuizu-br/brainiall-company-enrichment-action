@@ -1,5 +1,5 @@
 name: 'Brainiall Company Enrichment'
-description: 'Enrich one company domain with firmographics, technologies, socials, and financial signals through Apify.'
+description: 'Extract source-backed website metadata candidates for one company domain through Apify.'
 author: 'BRAINIALL Team'
 
 inputs:
@@ -13,19 +13,6 @@ inputs:
     description: 'Output JSON path inside GITHUB_WORKSPACE. Its parent directory must already exist.'
     required: false
     default: 'company-enrichment.json'
-  include_technologies:
-    description: 'Include detected technology signals: true or false.'
-    required: false
-    default: 'true'
-  include_socials:
-    description: 'Include public social profile signals: true or false.'
-    required: false
-    default: 'true'
-  include_financials:
-    description: 'Include available financial signals: true or false.'
-    required: false
-    default: 'true'
-
 outputs:
   output_path:
     description: 'Absolute path of the generated JSON file.'
@@ -44,9 +31,6 @@ runs:
         BRAINIALL_DOMAIN: ${{ inputs.domain }}
         BRAINIALL_APIFY_TOKEN: ${{ inputs.apify_token }}
         BRAINIALL_OUTPUT_PATH: ${{ inputs.output_path }}
-        BRAINIALL_INCLUDE_TECHNOLOGIES: ${{ inputs.include_technologies }}
-        BRAINIALL_INCLUDE_SOCIALS: ${{ inputs.include_socials }}
-        BRAINIALL_INCLUDE_FINANCIALS: ${{ inputs.include_financials }}
       run: '"${GITHUB_ACTION_PATH}/scripts/enrich.sh"'
 
 branding:

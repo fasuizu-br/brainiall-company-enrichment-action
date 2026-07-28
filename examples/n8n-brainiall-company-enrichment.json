@@ -31,7 +31,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const domain = String($json.domain || '').trim();\nif (domain.length > 253 || !domain.includes('.') || domain.includes('://') || domain.includes('/') || domain.includes(':') || domain.includes(' ') || domain.startsWith('.') || domain.endsWith('.') || domain.includes('..')) {\n  throw new Error('Use one bare company domain, for example example.com');\n}\nconst labels = domain.split('.');\nconst labelPattern = /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/;\nif (labels.some((label) => label.length < 1 || label.length > 63 || !labelPattern.test(label)) || !/^[A-Za-z]{2,63}$/.test(labels.at(-1))) {\n  throw new Error('The company domain is invalid');\n}\nreturn [{ json: { domain, includeTechnologies: true, includeSocials: true, includeFinancials: true } }];"
+        "jsCode": "const domain = String($json.domain || '').trim().toLowerCase();\nif (domain.length > 253 || !domain.includes('.') || domain.includes('://') || domain.includes('/') || domain.includes(':') || domain.includes(' ') || domain.startsWith('.') || domain.endsWith('.') || domain.includes('..')) {\n  throw new Error('Use one bare company domain, for example example.com');\n}\nconst labels = domain.split('.');\nconst labelPattern = /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/;\nif (labels.some((label) => label.length < 1 || label.length > 63 || !labelPattern.test(label)) || !/^[A-Za-z]{2,63}$/.test(labels.at(-1))) {\n  throw new Error('The company domain is invalid');\n}\nreturn [{ json: { domain, integrationSource: 'n8n-github-c9' } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -68,7 +68,17 @@
     },
     {
       "parameters": {
-        "content": "## Configure before the first run\n\n1. Create a scoped Apify API token that can run Actors.\n2. In **Enrich company on Apify**, select an n8n **Header Auth** credential with header name `Authorization` and value `Bearer YOUR_SCOPED_APIFY_TOKEN`. Never paste a token into workflow fields.\n3. Change `example.com` in **Set company domain**.\n4. Run manually and inspect the single returned item.\n\nThe request is fixed to Brainiall's `vivid_astronaut/company-enrichment` Actor, `maxItems=1`, and `maxTotalChargeUsd=0.02`. Actor and Apify platform charges may apply.",
+        "jsCode": "const expectedDomain = $('Validate domain').first().json.domain;\nconst rows = $input.all().flatMap((item) => Array.isArray(item.json) ? item.json : [item.json]);\nif (rows.length !== 1) {\n  throw new Error('Expected exactly one company metadata result');\n}\nconst row = rows[0];\nif (row.success !== true || row.domain !== expectedDomain || row.integrationSource !== 'n8n-github-c9' || row.provenance?.method !== 'website_metadata_scrape') {\n  throw new Error('The Actor response failed semantic validation');\n}\nreturn [{ json: row }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 160],
+      "id": "0f6c43c4-867d-4938-858b-f5be724925aa",
+      "name": "Validate enrichment result"
+    },
+    {
+      "parameters": {
+        "content": "## Configure before the first run\n\n1. Create a scoped Apify API token that can run Actors.\n2. In **Enrich company on Apify**, select an n8n **Header Auth** credential with header name `Authorization` and value `Bearer YOUR_SCOPED_APIFY_TOKEN`. Never paste a token into workflow fields.\n3. Change `example.com` in **Set company domain**.\n4. Run manually. **Validate enrichment result** permits exactly one source-backed item.\n\nThe request is fixed to Brainiall's `vivid_astronaut/company-enrichment` Actor, `maxItems=1`, and `maxTotalChargeUsd=0.02`. Candidate fields are not authoritative registry facts. Actor and Apify platform charges may apply.",
         "height": 400,
         "width": 520,
         "color": 5
@@ -83,7 +93,8 @@
   "connections": {
     "Run manually": {"main": [[{"node": "Set company domain", "type": "main", "index": 0}]]},
     "Set company domain": {"main": [[{"node": "Validate domain", "type": "main", "index": 0}]]},
-    "Validate domain": {"main": [[{"node": "Enrich company on Apify", "type": "main", "index": 0}]]}
+    "Validate domain": {"main": [[{"node": "Enrich company on Apify", "type": "main", "index": 0}]]},
+    "Enrich company on Apify": {"main": [[{"node": "Validate enrichment result", "type": "main", "index": 0}]]}
   },
   "pinData": {},
   "settings": {"executionOrder": "v1"},

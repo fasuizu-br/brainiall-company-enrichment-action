@@ -11,7 +11,7 @@ const workflow = JSON.parse(source);
 
 assert.equal(typeof workflow.name, 'string');
 assert.ok(Array.isArray(workflow.nodes));
-assert.equal(workflow.nodes.length, 5, 'expected trigger, input, validation, request, and note');
+assert.equal(workflow.nodes.length, 6, 'expected trigger, input, two validations, request, and note');
 assert.ok(workflow.nodes.every((node) => !Object.hasOwn(node, 'credentials')), 'credential IDs must not be embedded');
 
 const names = workflow.nodes.map((node) => node.name);
@@ -37,10 +37,20 @@ const query = Object.fromEntries(
 );
 assert.deepEqual(query, { maxItems: '1', maxTotalChargeUsd: '0.02' });
 
-const validation = workflow.nodes.find((node) => node.type === 'n8n-nodes-base.code');
-assert.ok(validation, 'Code validation node is required');
-assert.match(validation.parameters.jsCode, /domain\.includes\('\:\/\/'\)/);
-assert.match(validation.parameters.jsCode, /includeTechnologies: true/);
+const inputValidation = workflow.nodes.find((node) => node.name === 'Validate domain');
+assert.ok(inputValidation, 'domain validation node is required');
+assert.match(inputValidation.parameters.jsCode, /domain\.includes\('\:\/\/'\)/);
+assert.match(inputValidation.parameters.jsCode, /integrationSource: 'n8n-github-c9'/);
+
+const resultValidation = workflow.nodes.find((node) => node.name === 'Validate enrichment result');
+assert.ok(resultValidation, 'semantic result validation node is required');
+assert.match(resultValidation.parameters.jsCode, /rows\.length !== 1/);
+assert.match(resultValidation.parameters.jsCode, /row\.success !== true/);
+assert.match(resultValidation.parameters.jsCode, /website_metadata_scrape/);
+assert.deepEqual(
+  workflow.connections['Enrich company on Apify'].main[0][0],
+  { node: 'Validate enrichment result', type: 'main', index: 0 },
+);
 
 assert.equal(workflow.meta?.templateCredsSetupCompleted, false);
 assert.doesNotMatch(source, /Bearer\s+(?!YOUR_SCOPED_APIFY_TOKEN(?:`|\\|\s|$))[A-Za-z0-9._~-]{12,}/, 'possible bearer secret found');

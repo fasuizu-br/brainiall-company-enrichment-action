@@ -21,15 +21,6 @@ reject_line_breaks() {
   esac
 }
 
-validate_boolean() {
-  local label=$1
-  local value=$2
-  case "$value" in
-    true|false) ;;
-    *) fail "$label must be true or false." ;;
-  esac
-}
-
 validate_domain() {
   local value=$1
   local label
@@ -66,9 +57,6 @@ workspace=$(cd -P -- "$workspace_input" && pwd)
 domain=${BRAINIALL_DOMAIN:-}
 apify_token=${BRAINIALL_APIFY_TOKEN:-}
 output_path=${BRAINIALL_OUTPUT_PATH:-company-enrichment.json}
-include_technologies=${BRAINIALL_INCLUDE_TECHNOLOGIES:-true}
-include_socials=${BRAINIALL_INCLUDE_SOCIALS:-true}
-include_financials=${BRAINIALL_INCLUDE_FINANCIALS:-true}
 
 [[ -n "$domain" ]] || fail 'The domain input is required.'
 [[ -n "$apify_token" ]] || fail 'The apify_token input is required. Pass it from GitHub Actions secrets.'
@@ -78,9 +66,6 @@ reject_line_breaks 'domain' "$domain"
 reject_line_breaks 'apify_token' "$apify_token"
 reject_line_breaks 'output_path' "$output_path"
 validate_domain "$domain"
-validate_boolean 'include_technologies' "$include_technologies"
-validate_boolean 'include_socials' "$include_socials"
-validate_boolean 'include_financials' "$include_financials"
 
 if [[ "$output_path" == /* ]]; then
   output_candidate=$output_path
@@ -129,10 +114,7 @@ unset apify_token BRAINIALL_APIFY_TOKEN
 
 jq -n \
   --arg domain "$domain" \
-  --argjson includeTechnologies "$include_technologies" \
-  --argjson includeSocials "$include_socials" \
-  --argjson includeFinancials "$include_financials" \
-  '{domain: $domain, includeTechnologies: $includeTechnologies, includeSocials: $includeSocials, includeFinancials: $includeFinancials}' \
+  '{domain: $domain, integrationSource: "github-action-c9"}' \
   >"$payload_file"
 
 response_tmp=$(mktemp "$output_dir/.brainiall-enrichment-output.XXXXXX") \
@@ -162,10 +144,14 @@ fi
 [[ "$http_code" =~ ^2[0-9][0-9]$ ]] \
   || fail "The Apify API returned HTTP $http_code. No output file was replaced."
 [[ -s "$response_tmp" ]] || fail 'The Apify Actor returned an empty response.'
-jq -e 'type == "array" and length <= 1' "$response_tmp" >/dev/null \
+jq -e --arg domain "$domain" \
+  'type == "array" and length == 1 and .[0].success == true and
+   .[0].domain == $domain and .[0].integrationSource == "github-action-c9" and
+   .[0].provenance.method == "website_metadata_scrape"' \
+  "$response_tmp" >/dev/null \
   || fail 'The Apify Actor returned an unexpected response shape.'
 
-result_count=$(jq 'length' "$response_tmp")
+result_count=1
 mv -f -- "$response_tmp" "$output_abs"
 response_tmp=''
 
