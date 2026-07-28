@@ -145,9 +145,26 @@ fi
   || fail "The Apify API returned HTTP $http_code. No output file was replaced."
 [[ -s "$response_tmp" ]] || fail 'The Apify Actor returned an empty response.'
 jq -e --arg domain "$domain" \
-  'type == "array" and length == 1 and .[0].success == true and
-   .[0].domain == $domain and .[0].integrationSource == "github-action-c9" and
-   .[0].provenance.method == "website_metadata_scrape"' \
+  'type == "array" and length == 1 and
+   (.[0] | type == "object" and
+     (keys | sort) == [
+       "description", "domain", "industryCandidate", "integrationSource",
+       "nameCandidate", "observedAt", "provenance", "success", "website"
+     ]) and
+   .[0].success == true and
+   .[0].domain == $domain and
+   .[0].website == ("https://" + $domain + "/") and
+   (. [0].nameCandidate | type == "string" or . == null) and
+   (. [0].description | type == "string" or . == null) and
+   (. [0].industryCandidate | type == "string" or . == null) and
+   .[0].integrationSource == "github-action-c9" and
+   (. [0].observedAt | type == "string" and
+     test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$")) and
+   (. [0].provenance | type == "object" and
+     (keys | sort) == ["caveat", "method", "sourceUrl"] and
+     .method == "website_metadata_scrape" and
+     .sourceUrl == ("https://" + $domain + "/") and
+     .caveat == "Candidate fields are not authoritative registry data.")' \
   "$response_tmp" >/dev/null \
   || fail 'The Apify Actor returned an unexpected response shape.'
 

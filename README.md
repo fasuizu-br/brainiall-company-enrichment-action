@@ -35,7 +35,7 @@ jobs:
 
       - name: Enrich company
         id: company
-        uses: fasuizu-br/brainiall-company-enrichment-action@v1.0.2
+        uses: fasuizu-br/brainiall-company-enrichment-action@v1.0.3
         with:
           domain: ${{ inputs.domain }}
           apify_token: ${{ secrets.APIFY_TOKEN }}
@@ -60,6 +60,15 @@ The action never creates parent directories implicitly.
 The action returns the absolute `output_path` and a `result_count` of one only
 after the Actor response passes semantic validation. Treat candidate fields as
 website-derived hints, not authoritative registry facts.
+
+### Data truth boundary
+
+The action accepts only the current source-backed field set. It rejects legacy
+size, location, founding, financial, social, technology, or other extra fields;
+it also requires the source URL to match the requested domain and requires the
+exact `website_metadata_scrape` provenance caveat. Builds before the Actor's
+`1.1.1` remediation may have returned estimated fields and must not be used as
+evidence.
 
 ## Cost and security guardrails
 

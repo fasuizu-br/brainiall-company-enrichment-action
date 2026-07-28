@@ -70,7 +70,7 @@ jq -e \
 
 case "${MOCK_CURL_MODE:-success}" in
   success)
-    printf '[{"success":true,"domain":"%s","nameCandidate":"Mock Company","integrationSource":"github-action-c9","provenance":{"method":"website_metadata_scrape"}}]' "$MOCK_EXPECTED_DOMAIN" >"$output_file"
+    printf '[{"success":true,"domain":"%s","website":"https://%s/","nameCandidate":"Mock Company","description":null,"industryCandidate":null,"provenance":{"method":"website_metadata_scrape","sourceUrl":"https://%s/","caveat":"Candidate fields are not authoritative registry data."},"integrationSource":"github-action-c9","observedAt":"2026-07-28T00:00:00.000Z"}]' "$MOCK_EXPECTED_DOMAIN" "$MOCK_EXPECTED_DOMAIN" "$MOCK_EXPECTED_DOMAIN" >"$output_file"
     printf '200'
     ;;
   empty)
@@ -88,6 +88,14 @@ case "${MOCK_CURL_MODE:-success}" in
     ;;
   semantic_error)
     printf '[{"success":false,"domain":"%s","error":"upstream failed"}]' "$MOCK_EXPECTED_DOMAIN" >"$output_file"
+    printf '200'
+    ;;
+  legacy_estimates)
+    printf '[{"success":true,"domain":"%s","website":"https://%s/","nameCandidate":"Mock Company","description":null,"industryCandidate":null,"size":"5001+","location":"Tokyo, Japan","founded":1999,"provenance":{"method":"website_metadata_scrape","sourceUrl":"https://%s/","caveat":"Candidate fields are not authoritative registry data."},"integrationSource":"github-action-c9","observedAt":"2026-07-28T00:00:00.000Z"}]' "$MOCK_EXPECTED_DOMAIN" "$MOCK_EXPECTED_DOMAIN" "$MOCK_EXPECTED_DOMAIN" >"$output_file"
+    printf '200'
+    ;;
+  bad_provenance)
+    printf '[{"success":true,"domain":"%s","website":"https://%s/","nameCandidate":"Mock Company","description":null,"industryCandidate":null,"provenance":{"method":"estimated","sourceUrl":"https://other.example/","caveat":"Unverified estimate."},"integrationSource":"github-action-c9","observedAt":"2026-07-28T00:00:00.000Z"}]' "$MOCK_EXPECTED_DOMAIN" "$MOCK_EXPECTED_DOMAIN" >"$output_file"
     printf '200'
     ;;
   *) exit 100 ;;
@@ -175,6 +183,20 @@ fi
 assert_not_contains_token "$logs"
 [[ ! -e "$workspace/results/semantic-error.json" ]]
 
+if logs=$(run_action legacy_estimates example.com 'results/legacy-estimates.json' 2>&1); then
+  printf 'FAIL: legacy simulated fields were accepted\n' >&2
+  exit 1
+fi
+assert_not_contains_token "$logs"
+[[ ! -e "$workspace/results/legacy-estimates.json" ]]
+
+if logs=$(run_action bad_provenance example.com 'results/bad-provenance.json' 2>&1); then
+  printf 'FAIL: invalid provenance was accepted\n' >&2
+  exit 1
+fi
+assert_not_contains_token "$logs"
+[[ ! -e "$workspace/results/bad-provenance.json" ]]
+
 outside=$test_root/outside.json
 printf 'outside\n' >"$outside"
 ln -s "$outside" "$workspace/results/symlink.json"
@@ -189,4 +211,4 @@ if find "$runner_temp" -mindepth 1 -print -quit | grep -q .; then
   exit 1
 fi
 
-printf 'PASS: 8 isolated tests completed without a real token or network request.\n'
+printf 'PASS: 10 isolated tests completed without a real token or network request.\n'
