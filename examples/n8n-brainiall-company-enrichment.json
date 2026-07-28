@@ -1,0 +1,92 @@
+{
+  "name": "Brainiall: enrich a company domain with Apify",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-520, 160],
+      "id": "f68af4dd-1cdb-47ad-b385-e65475f8f613",
+      "name": "Run manually"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dff8a003-3e79-4cc8-8d11-11ade1f76b28",
+              "name": "domain",
+              "value": "example.com",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-300, 160],
+      "id": "c0c2cfd8-b815-4fd7-9058-a113e1a06bc6",
+      "name": "Set company domain"
+    },
+    {
+      "parameters": {
+        "jsCode": "const domain = String($json.domain || '').trim();\nif (domain.length > 253 || !domain.includes('.') || domain.includes('://') || domain.includes('/') || domain.includes(':') || domain.includes(' ') || domain.startsWith('.') || domain.endsWith('.') || domain.includes('..')) {\n  throw new Error('Use one bare company domain, for example example.com');\n}\nconst labels = domain.split('.');\nconst labelPattern = /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/;\nif (labels.some((label) => label.length < 1 || label.length > 63 || !labelPattern.test(label)) || !/^[A-Za-z]{2,63}$/.test(labels.at(-1))) {\n  throw new Error('The company domain is invalid');\n}\nreturn [{ json: { domain, includeTechnologies: true, includeSocials: true, includeFinancials: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-60, 160],
+      "id": "6de5dfef-56bf-4a4d-a89b-c72603dba826",
+      "name": "Validate domain"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/vivid_astronaut~company-enrichment/run-sync-get-dataset-items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "maxItems", "value": "1"},
+            {"name": "maxTotalChargeUsd", "value": "0.02"}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 150000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [180, 160],
+      "id": "27149609-c426-46bf-97fb-72e7a58345b1",
+      "name": "Enrich company on Apify"
+    },
+    {
+      "parameters": {
+        "content": "## Configure before the first run\n\n1. Create a scoped Apify API token that can run Actors.\n2. In **Enrich company on Apify**, select an n8n **Header Auth** credential with header name `Authorization` and value `Bearer YOUR_SCOPED_APIFY_TOKEN`. Never paste a token into workflow fields.\n3. Change `example.com` in **Set company domain**.\n4. Run manually and inspect the single returned item.\n\nThe request is fixed to Brainiall's `vivid_astronaut/company-enrichment` Actor, `maxItems=1`, and `maxTotalChargeUsd=0.02`. Actor and Apify platform charges may apply.",
+        "height": 400,
+        "width": 520,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-520, -360],
+      "id": "3b5dc6a3-33a8-4ed7-9f27-1fbcc46ae355",
+      "name": "Setup instructions"
+    }
+  ],
+  "connections": {
+    "Run manually": {"main": [[{"node": "Set company domain", "type": "main", "index": 0}]]},
+    "Set company domain": {"main": [[{"node": "Validate domain", "type": "main", "index": 0}]]},
+    "Validate domain": {"main": [[{"node": "Enrich company on Apify", "type": "main", "index": 0}]]}
+  },
+  "pinData": {},
+  "settings": {"executionOrder": "v1"},
+  "meta": {"templateCredsSetupCompleted": false},
+  "tags": []
+}

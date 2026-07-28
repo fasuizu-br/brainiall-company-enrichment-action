@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check shell syntax
+        run: bash -n scripts/enrich.sh scripts/test.sh
+      - name: Run isolated action tests
+        run: ./scripts/test.sh
+      - name: Validate n8n workflow
+        run: node scripts/validate-n8n-workflow.mjs
