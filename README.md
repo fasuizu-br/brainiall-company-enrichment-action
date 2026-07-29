@@ -35,7 +35,7 @@ jobs:
 
       - name: Enrich company
         id: company
-        uses: fasuizu-br/brainiall-company-enrichment-action@v1.0.3
+        uses: fasuizu-br/brainiall-company-enrichment-action@v1.1.0
         with:
           domain: ${{ inputs.domain }}
           apify_token: ${{ secrets.APIFY_TOKEN }}
@@ -109,6 +109,21 @@ the same one-result, US$0.02 request cap.
 4. Change the domain in **Set company domain** and run the workflow manually.
 
 No credential, credential ID, or token is embedded in the workflow JSON.
+
+## A reviewed list of up to 200 domains
+
+[`examples/enrich-domain-list.yml`](examples/enrich-domain-list.yml) turns a
+repository-owned `domains.txt` file into a sequential matrix of at most 200
+one-domain runs. It rejects blank input, malformed or duplicate domains, keeps
+`max-parallel: 1`, requires an explicit paid-run confirmation in the manual
+workflow form, and uploads each source-backed result separately for review.
+
+This is intended for low-volume CRM or research maintenance, not mass scraping.
+Each matrix entry can incur the action's live Apify charge, capped at USD 0.02
+per domain; 200 entries therefore have a request cap of USD 4.00 before any
+other account-level costs. Review the Actor's live pricing first. Website
+metadata candidates are not registry truth, credit data, funding data, employee
+counts, or a substitute for human verification.
 
 ## License
 
