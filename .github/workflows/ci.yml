@@ -18,3 +18,5 @@ jobs:
         run: ./scripts/test.sh
       - name: Validate n8n workflow
         run: node scripts/validate-n8n-workflow.mjs
+      - name: Test local review queue
+        run: node scripts/test-review-queue.mjs

@@ -94,6 +94,7 @@ request and uses no real token:
 ```bash
 ./scripts/test.sh
 node scripts/validate-n8n-workflow.mjs
+node scripts/test-review-queue.mjs
 ```
 
 ## n8n workflow
@@ -124,6 +125,39 @@ per domain; 200 entries therefore have a request cap of USD 4.00 before any
 other account-level costs. Review the Actor's live pricing first. Website
 metadata candidates are not registry truth, credit data, funding data, employee
 counts, or a substitute for human verification.
+
+## Local CSV review queue
+
+Turn an existing Actor dataset export into a review-first CSV without making
+any network request or exposing the input contents in logs:
+
+```bash
+node scripts/build-review-queue.mjs \
+  --input company-enrichment-results.json \
+  --output company-review-queue.csv
+```
+
+To pass a JSON array over standard input instead of naming a source file:
+
+```bash
+node scripts/build-review-queue.mjs \
+  --input - \
+  --output company-review-queue.csv < company-enrichment-results.json
+```
+
+The input must be one array of 1–200 unique current-schema results. The utility
+requires `success=true`, canonical bare domains and matching HTTPS website and
+source URLs, the exact `website_metadata_scrape` provenance boundary, a valid
+UTC `observedAt`, a bounded `integrationSource`, and bounded candidate strings
+(`nameCandidate` 200, `industryCandidate` 160, `description` 2,000 characters).
+It rejects every extra field—including legacy `size`, `location`, and
+`founded` estimates—plus control characters and spreadsheet-formula prefixes.
+
+Every accepted row is written with `status=pending`, a blank `review_notes`
+cell, and the complete provenance fields. The output is a review queue, not an
+automatic CRM import and not authoritative company data. The command logs only
+the accepted row count; validation errors identify the item and field without
+echoing input values.
 
 ## License
 
