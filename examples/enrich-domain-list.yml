@@ -1,0 +1,98 @@
+name: Enrich a reviewed domain list
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_paid_runs:
+        description: I reviewed live Apify pricing and authorize up to USD 0.02 per domain
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      domains: ${{ steps.matrix.outputs.domains }}
+      count: ${{ steps.matrix.outputs.count }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate consent and build a bounded matrix
+        id: matrix
+        env:
+          CONFIRM_PAID_RUNS: ${{ inputs.confirm_paid_runs }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CONFIRM_PAID_RUNS" == "true" ]] || {
+            echo "Start the workflow again only after reviewing live pricing and enabling the paid-run confirmation." >&2
+            exit 1
+          }
+          [[ -f domains.txt ]] || {
+            echo "Create domains.txt with one bare company domain per line." >&2
+            exit 1
+          }
+
+          mapfile -t domains < <(
+            sed -E 's/^[[:space:]]+|[[:space:]]+$//g' domains.txt |
+              sed -E '/^($|#)/d' |
+              tr '[:upper:]' '[:lower:]'
+          )
+          count="${#domains[@]}"
+          (( count >= 1 && count <= 200 )) || {
+            echo "domains.txt must contain between 1 and 200 reviewed domains; found $count." >&2
+            exit 1
+          }
+
+          declare -A seen=()
+          for domain in "${domains[@]}"; do
+            [[ "$domain" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,63}$ ]] || {
+              echo "Invalid bare domain: $domain" >&2
+              exit 1
+            }
+            [[ -z "${seen[$domain]:-}" ]] || {
+              echo "Duplicate domain: $domain" >&2
+              exit 1
+            }
+            seen[$domain]=1
+          done
+
+          json="$(printf '%s\n' "${domains[@]}" | jq -Rsc 'split("\n") | map(select(length > 0))')"
+          echo "domains=$json" >> "$GITHUB_OUTPUT"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Maximum request cap: USD $(awk -v n="$count" 'BEGIN { printf "%.2f", n * 0.02 }')" >> "$GITHUB_STEP_SUMMARY"
+
+  enrich:
+    name: Enrich ${{ matrix.domain }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        domain: ${{ fromJSON(needs.prepare.outputs.domains) }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Prepare output directory
+        shell: bash
+        run: mkdir -p build/company-enrichment
+
+      - name: Enrich one source-backed company website
+        id: company
+        uses: fasuizu-br/brainiall-company-enrichment-action@v1.1.0
+        with:
+          domain: ${{ matrix.domain }}
+          apify_token: ${{ secrets.APIFY_TOKEN }}
+          output_path: build/company-enrichment/${{ matrix.domain }}.json
+
+      - name: Upload one reviewable result
+        uses: actions/upload-artifact@v4
+        with:
+          name: company-${{ matrix.domain }}
+          path: ${{ steps.company.outputs.output_path }}
+          if-no-files-found: error
