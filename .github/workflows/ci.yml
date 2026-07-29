@@ -20,3 +20,5 @@ jobs:
         run: node scripts/validate-n8n-workflow.mjs
       - name: Test local review queue
         run: node scripts/test-review-queue.mjs
+      - name: Test Neotoma review proposal
+        run: node scripts/test-neotoma-review-proposal.mjs

@@ -95,6 +95,7 @@ request and uses no real token:
 ./scripts/test.sh
 node scripts/validate-n8n-workflow.mjs
 node scripts/test-review-queue.mjs
+node scripts/test-neotoma-review-proposal.mjs
 ```
 
 ## n8n workflow
@@ -158,6 +159,32 @@ cell, and the complete provenance fields. The output is a review queue, not an
 automatic CRM import and not authoritative company data. The command logs only
 the accepted row count; validation errors identify the item and field without
 echoing input values.
+
+## Neotoma review-proposal contract
+
+[`scripts/build-neotoma-review-proposal.mjs`](scripts/build-neotoma-review-proposal.mjs)
+is an offline, review-first contract proposal for
+[`markmhendrickson/neotoma#1931`](https://github.com/markmhendrickson/neotoma/issues/1931).
+It converts exactly one already-downloaded, current-schema Actor result into a
+deterministic candidate-field envelope:
+
+```bash
+node scripts/build-neotoma-review-proposal.mjs \
+  --input company-enrichment-results.json \
+  --entity-id ent_1234567890abcdef \
+  --output neotoma-review-proposal.json
+```
+
+The proposal marks every field as `observationSource=import`, carries source
+URL and observation time, derives a stable per-entity/per-field idempotency key,
+and requires `preserve_operator_set_values`. It performs no network request and
+no Neotoma write. It deliberately omits HQ location, size band, funding, and
+other fields the current Actor does not source.
+
+This is not an accepted Neotoma API, installed bundle, or production
+integration. A Neotoma implementation would still need maintainer-approved
+field mappings, tenant-scoped retrieval, credential handling, conflict checks,
+interrupt/resume behavior, and post-write assertions.
 
 ## License
 
